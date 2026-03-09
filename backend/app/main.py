@@ -7,7 +7,10 @@ is the target for uvicorn when starting the server.
 
 from fastapi import FastAPI
 
+from app.api import sessions
+
 app = FastAPI()
+app.include_router(sessions.router)
 
 
 @app.get("/health")
