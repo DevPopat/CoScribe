@@ -11,22 +11,20 @@ CoScribe is a writer's copilot browser extension + backend API. Users enter a to
 ### Backend (Python + FastAPI)
 
 ```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-
-# Run dev server
-uvicorn app.main:app --reload
+# Start the backend
+docker compose up backend
 
 # Run all tests
-pytest tests/ -v
+docker compose run --rm backend pytest tests/ -v
 
 # Run a single test file
-pytest tests/test_sessions.py -v
+docker compose run --rm backend pytest tests/test_sessions.py -v
 
 # Run a single test
-pytest tests/test_sessions.py::test_create_session -v
+docker compose run --rm backend pytest tests/test_sessions.py::test_create_session -v
 ```
+
+Copy `backend/.env.example` to `backend/.env` and set `ANTHROPIC_API_KEY` before starting.
 
 ### Extension (React + TypeScript + Vite)
 
@@ -135,6 +133,3 @@ Format: `type(scope): description`
 | chore    | maintenance             |
 | perf     | performance improvement |
 
-## Environment
-
-Backend requires `ANTHROPIC_API_KEY` in a `.env` file at `backend/`.
