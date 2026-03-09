@@ -109,6 +109,12 @@ bd close <id>
 
 See `AGENTS.md` for full workflow.
 
+**Standalone tickets**: Any ticket that has no natural place in the dependency tree must be linked as a dependency of `CoScribe-tc7` so it appears in the graph:
+
+```bash
+bd dep add CoScribe-tc7 <new-ticket-id>
+```
+
 ## Git Workflow
 
 After completing any task, always commit and push:
