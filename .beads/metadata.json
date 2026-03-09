@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "CoScribe",
+  "project_id": "30abc3cd-9dc2-447e-ba3f-aecc50bebe02"
+}
