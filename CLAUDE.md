@@ -117,7 +117,11 @@ bd dep add CoScribe-tc7 <new-ticket-id>
 
 ## Git Workflow
 
-After completing any task, always commit and push:
+After completing any task, always run this sequence:
+
+1. Commit and push code changes
+2. Close the beads ticket (`bd close <id>`)
+3. Run `bd ready` to show the next available tasks
 
 ```bash
 git add <files>
