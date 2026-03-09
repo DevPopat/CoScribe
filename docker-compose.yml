@@ -3,7 +3,9 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    # Mount source so live reload works without rebuilding the image
     volumes:
       - ./backend:/app
+    # Reads ANTHROPIC_API_KEY and any other secrets from backend/.env
     env_file:
       - ./backend/.env

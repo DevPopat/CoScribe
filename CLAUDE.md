@@ -119,6 +119,25 @@ git commit -m "type(scope): description"
 git push
 ```
 
+## Code Documentation Standards
+
+**Python files:**
+- Module-level docstring at the top of every file explaining what it does.
+- Sphinx-format docstrings on all functions, methods, and classes using `:param name:` and `:returns:`. Do **not** include `:type:` or `:rtype:` — type annotations on the signature are sufficient.
+
+```python
+def get(self, session_id: str) -> Optional[WritingSession]:
+    """
+    Retrieve a session by its ID.
+
+    :param session_id: The UUID of the session to look up.
+    :returns: The matching session, or ``None`` if not found.
+    """
+```
+
+**Non-Python files** (Dockerfile, docker-compose.yml, shell scripts, etc.):
+- Add brief inline comments through the script where the intent isn't obvious. No header block needed.
+
 ## Commit Message Style
 
 Format: `type(scope): description`
