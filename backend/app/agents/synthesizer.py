@@ -7,11 +7,8 @@ that is parsed directly into an ``Outline`` Pydantic model.
 
 import json
 
-import anthropic
-
+from app.agents.utils import client
 from app.models.outline import Outline
-
-client = anthropic.Anthropic()
 
 _OUTLINE_SCHEMA = """
 {
@@ -33,16 +30,14 @@ def synthesize_outline(
     audience: str,
     research: str,
     style: str,
-    gaps: str,
 ) -> Outline:
     """
-    Synthesize all planning agent outputs into a structured article outline.
+    Synthesize planning agent outputs into a structured article outline.
 
     :param topic: The subject the user wants to write about.
     :param audience: Intended readership.
     :param research: Output from the research agent.
     :param style: Output from the style analyzer agent.
-    :param gaps: Output from the coverage gap agent.
     :returns: A fully populated ``Outline`` ready for section drafting.
     """
     prompt = (
@@ -51,7 +46,6 @@ def synthesize_outline(
         f"Audience: {audience}\n\n"
         f"Research:\n{research}\n\n"
         f"Writing style:\n{style}\n\n"
-        f"Coverage gaps to address:\n{gaps}\n\n"
         f"Produce a structured outline as JSON matching this schema exactly:\n"
         f"{_OUTLINE_SCHEMA}\n\n"
         f"Return only valid JSON with no markdown fences or extra text."
