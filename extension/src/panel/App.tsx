@@ -13,9 +13,14 @@ export default function App() {
     currentSectionIndex,
     isLoading,
     error,
+    refinementHistory,
+    isRefining,
+    outlineChanged,
     startSession,
     draftSection,
     approveSection,
+    refineOutline,
+    clearOutlineChanged,
   } = useSession();
 
   const editorStatus = useEditorStatus();
@@ -53,6 +58,11 @@ export default function App() {
         outline={outline}
         currentSectionIndex={currentSectionIndex}
         onSelectSection={(i) => draftSection(i)}
+        refinementHistory={refinementHistory}
+        isRefining={isRefining}
+        outlineChanged={outlineChanged}
+        onRefine={refineOutline}
+        onOutlineTabClick={clearOutlineChanged}
       />
 
       {activeSection && (

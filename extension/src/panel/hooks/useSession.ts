@@ -8,15 +8,25 @@ import type {
 } from "../../types";
 import api from "./useAPI";
 
+export interface RefinementMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface UseSessionReturn {
   session: WritingSession | null;
   outline: Outline | null;
   currentSectionIndex: number;
   isLoading: boolean;
   error: string | null;
+  refinementHistory: RefinementMessage[];
+  isRefining: boolean;
+  outlineChanged: boolean;
   startSession: (params: CreateSessionParams) => Promise<void>;
   draftSection: (index: number) => Promise<void>;
   approveSection: (index: number, text?: string) => Promise<void>;
+  refineOutline: (message: string) => Promise<void>;
+  clearOutlineChanged: () => void;
 }
 
 export default function useSession(): UseSessionReturn {
@@ -25,6 +35,9 @@ export default function useSession(): UseSessionReturn {
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refinementHistory, setRefinementHistory] = useState<RefinementMessage[]>([]);
+  const [isRefining, setIsRefining] = useState(false);
+  const [outlineChanged, setOutlineChanged] = useState(false);
 
   const startSession = useCallback(async (params: CreateSessionParams) => {
     setIsLoading(true);
@@ -101,14 +114,43 @@ export default function useSession(): UseSessionReturn {
     [session],
   );
 
+  const refineOutline = useCallback(
+    async (message: string) => {
+      if (!session) return;
+      setIsRefining(true);
+      setError(null);
+      setRefinementHistory((prev) => [...prev, { role: "user", content: message }]);
+      try {
+        const { outline: updated, reply } = await api.refinePlan(session.id, message);
+        setOutline(updated);
+        setRefinementHistory((prev) => [...prev, { role: "assistant", content: reply }]);
+        setOutlineChanged(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setIsRefining(false);
+      }
+    },
+    [session],
+  );
+
+  const clearOutlineChanged = useCallback(() => {
+    setOutlineChanged(false);
+  }, []);
+
   return {
     session,
     outline,
     currentSectionIndex,
     isLoading,
     error,
+    refinementHistory,
+    isRefining,
+    outlineChanged,
     startSession,
     draftSection,
     approveSection,
+    refineOutline,
+    clearOutlineChanged,
   };
 }

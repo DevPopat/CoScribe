@@ -2,7 +2,7 @@ import { renderHook, act } from "@testing-library/react";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import useSession from "./useSession";
 import api from "./useAPI";
-import type { Outline, WritingSession } from "../../types";
+import type { Outline, RefineResponse, WritingSession } from "../../types";
 
 vi.mock("./useAPI", () => ({
   default: {
@@ -199,5 +199,72 @@ describe("useSession", () => {
     });
 
     expect(result.current.session?.status).toBe("complete");
+  });
+
+  it("refineOutline updates outline and appends to history", async () => {
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+
+    const refinedOutline: Outline = {
+      ...mockOutline,
+      title: "How to Bake Sourdough",
+    };
+    vi.mocked(api.refinePlan).mockResolvedValue({
+      outline: refinedOutline,
+      reply: "Changed title to sourdough.",
+    });
+
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => {
+      await result.current.startSession({
+        topic: "Baking bread",
+        audience: "Beginners",
+      });
+    });
+
+    await act(async () => {
+      await result.current.refineOutline("Focus on sourdough");
+    });
+
+    expect(api.refinePlan).toHaveBeenCalledWith("sess-1", "Focus on sourdough");
+    expect(result.current.outline?.title).toBe("How to Bake Sourdough");
+    expect(result.current.refinementHistory).toHaveLength(2);
+    expect(result.current.refinementHistory[0]).toEqual({
+      role: "user",
+      content: "Focus on sourdough",
+    });
+    expect(result.current.refinementHistory[1]).toEqual({
+      role: "assistant",
+      content: "Changed title to sourdough.",
+    });
+    expect(result.current.outlineChanged).toBe(true);
+    expect(result.current.isRefining).toBe(false);
+  });
+
+  it("clearOutlineChanged resets the flag", async () => {
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    vi.mocked(api.refinePlan).mockResolvedValue({
+      outline: mockOutline,
+      reply: "No changes.",
+    });
+
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => {
+      await result.current.startSession({ topic: "Test", audience: "All" });
+    });
+    await act(async () => {
+      await result.current.refineOutline("tweak");
+    });
+
+    expect(result.current.outlineChanged).toBe(true);
+
+    act(() => {
+      result.current.clearOutlineChanged();
+    });
+
+    expect(result.current.outlineChanged).toBe(false);
   });
 });
