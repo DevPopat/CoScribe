@@ -40,6 +40,8 @@ class WritingSession:
     :param writing_samples: Example texts provided by the user for style analysis.
     :param status: Current lifecycle state of the session.
     :param outline: The outline produced by the planning agents, set after planning completes.
+    :param refinement_history: Conversation turns used by the refine endpoint; each entry is
+        ``{"role": "user"|"assistant", "content": "..."}``.
     """
 
     topic: str
@@ -49,3 +51,4 @@ class WritingSession:
     writing_samples: list[str] = field(default_factory=list)
     status: SessionStatus = SessionStatus.PENDING
     outline: Optional[Outline] = None
+    refinement_history: list[dict] = field(default_factory=list)
