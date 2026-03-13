@@ -11,11 +11,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.agents.refine import refine_outline
 from app.agents.research import research_topic
 from app.agents.style_analyzer import analyze_style
 from app.agents.coverage_gap import find_gaps
 from app.agents.synthesizer import synthesize_outline
-from app.models.outline import Outline
+from app.models.outline import Outline, Section
 
 
 def make_end_turn_response(text: str) -> MagicMock:
@@ -206,3 +207,32 @@ def test_run_agent_loop_unknown_tool_returns_empty(mock_client):
     )
     assert result == "Done searching."
     assert mock_client.messages.create.call_count == 2
+
+
+# -- Refine agent -------------------------------------------------------------
+
+
+@patch("app.agents.refine.run_agent_loop")
+def test_refine_outline_returns_updated_outline_and_reply(mock_loop):
+    mock_loop.return_value = json.dumps({
+        "outline": {
+            "title": "Updated Title",
+            "brief": "Updated brief",
+            "tone_guidance": "Casual",
+            "sections": [{"title": "New Intro", "key_points": ["Point 1"]}],
+        },
+        "reply": "I changed the title and restructured the intro.",
+    })
+    current = Outline(
+        title="Original",
+        brief="Original brief",
+        tone_guidance="Formal",
+        sections=[Section(title="Old Intro", key_points=["Old point"])],
+    )
+
+    updated, reply = refine_outline(current, [], "Make it more casual")
+
+    assert isinstance(updated, Outline)
+    assert updated.title == "Updated Title"
+    assert reply == "I changed the title and restructured the intro."
+    mock_loop.assert_called_once()
