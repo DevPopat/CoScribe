@@ -1,9 +1,9 @@
 """
-Tests for plan generation and refinement API endpoints.
+Tests for plan generation, refinement, section draft, and approve API endpoints.
 
 All agent calls are mocked so tests run without an API key. Each test
-creates a session via the CRUD endpoint first, then triggers plan
-generation or refinement.
+creates a session via the CRUD endpoint first, then triggers the relevant
+endpoint.
 """
 
 from unittest.mock import patch
@@ -216,3 +216,138 @@ def test_refine_without_outline_returns_400():
         json={"message": "hello"},
     )
     assert resp.status_code == 400
+
+
+# -- Section draft endpoint ---------------------------------------------------
+
+
+@patch("app.api.drafts.draft_section", return_value="Baking bread is a joy.")
+def test_draft_returns_text(mock_draft):
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    resp = client.post(f"/sessions/{session_id}/sections/0/draft")
+
+    assert resp.status_code == 200
+    assert resp.json()["draft"] == "Baking bread is a joy."
+
+
+@patch("app.api.drafts.draft_section", return_value="Draft text.")
+def test_draft_stores_on_section(mock_draft):
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(f"/sessions/{session_id}/sections/0/draft")
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["draft"] == "Draft text."
+
+
+@patch("app.api.drafts.draft_section", return_value="Draft text.")
+def test_draft_sets_status_to_drafting(mock_draft):
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(f"/sessions/{session_id}/sections/0/draft")
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["status"] == "drafting"
+
+
+@patch("app.api.drafts.draft_section", return_value="Draft text.")
+def test_draft_passes_outline_context(mock_draft):
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(f"/sessions/{session_id}/sections/0/draft")
+
+    mock_draft.assert_called_once_with(
+        "How to Bake Bread", "A beginner guide.", "Friendly", "Intro", ["Why bake?"]
+    )
+
+
+def test_draft_nonexistent_session_returns_404():
+    resp = client.post("/sessions/does-not-exist/sections/0/draft")
+    assert resp.status_code == 404
+
+
+def test_draft_without_outline_returns_400():
+    session_id = _create_session()
+    resp = client.post(f"/sessions/{session_id}/sections/0/draft")
+    assert resp.status_code == 400
+
+
+def test_draft_out_of_range_section_returns_404():
+    session_id = _create_session()
+    _plan_session(session_id)
+    resp = client.post(f"/sessions/{session_id}/sections/99/draft")
+    assert resp.status_code == 404
+
+
+# -- Section approve endpoint -------------------------------------------------
+
+
+@patch("app.api.drafts.draft_section", return_value="Draft text.")
+def test_approve_marks_section_approved(mock_draft):
+    session_id = _create_session()
+    _plan_session(session_id)
+    client.post(f"/sessions/{session_id}/sections/0/draft")
+
+    resp = client.post(f"/sessions/{session_id}/sections/0/approve")
+
+    assert resp.status_code == 200
+    assert resp.json()["approved"] is True
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["approved"] is True
+
+
+@patch("app.api.drafts.draft_section", return_value="Draft text.")
+def test_approve_with_edited_text_replaces_draft(mock_draft):
+    session_id = _create_session()
+    _plan_session(session_id)
+    client.post(f"/sessions/{session_id}/sections/0/draft")
+
+    resp = client.post(
+        f"/sessions/{session_id}/sections/0/approve",
+        json={"text": "My edited version."},
+    )
+
+    assert resp.status_code == 200
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["draft"] == "My edited version."
+
+
+def test_approve_with_text_but_no_prior_draft():
+    """Approve with user-supplied text should work even without a prior draft."""
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    resp = client.post(
+        f"/sessions/{session_id}/sections/0/approve",
+        json={"text": "User-written section."},
+    )
+
+    assert resp.status_code == 200
+    session_resp = client.get(f"/sessions/{session_id}")
+    section = session_resp.json()["outline"]["sections"][0]
+    assert section["draft"] == "User-written section."
+    assert section["approved"] is True
+
+
+def test_approve_without_draft_or_text_returns_400():
+    session_id = _create_session()
+    _plan_session(session_id)
+    resp = client.post(f"/sessions/{session_id}/sections/0/approve")
+    assert resp.status_code == 400
+
+
+@patch("app.api.drafts.draft_section", return_value="Draft text.")
+def test_approve_all_sections_sets_status_complete(mock_draft):
+    """When all sections are approved, session status becomes complete."""
+    session_id = _create_session()
+    _plan_session(session_id)
+    client.post(f"/sessions/{session_id}/sections/0/draft")
+    client.post(f"/sessions/{session_id}/sections/0/approve")
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["status"] == "complete"
