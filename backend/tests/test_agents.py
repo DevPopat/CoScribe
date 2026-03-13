@@ -40,17 +40,15 @@ def test_research_topic_calls_claude(mock_loop):
     mock_loop.assert_called_once()
 
 
-@patch("app.agents.style_analyzer.client")
-def test_analyze_style_returns_string(mock_client):
-    mock_client.messages.create.return_value = make_mock_response("Conversational and direct tone.")
+@patch("app.agents.style_analyzer.run_agent_loop", return_value="Conversational and direct tone.")
+def test_analyze_style_returns_string(mock_loop):
     result = analyze_style(["I love writing simple, clear prose.", "Keep it short."])
     assert isinstance(result, str)
     assert len(result) > 0
 
 
-@patch("app.agents.style_analyzer.client")
-def test_analyze_style_with_no_samples_returns_string(mock_client):
-    mock_client.messages.create.return_value = make_mock_response("No samples provided; use neutral tone.")
+@patch("app.agents.style_analyzer.run_agent_loop", return_value="No samples provided; use neutral tone.")
+def test_analyze_style_with_no_samples_returns_string(mock_loop):
     result = analyze_style([])
     assert isinstance(result, str)
 
