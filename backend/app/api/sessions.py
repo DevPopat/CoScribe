@@ -25,12 +25,14 @@ class CreateSessionRequest(BaseModel):
     :param audience: Intended readership.
     :param notes: Optional freeform guidance for the planning agents.
     :param writing_samples: Example texts for style analysis.
+    :param reference_urls: Optional URLs for the planning agents to use as research context.
     """
 
     topic: str
     audience: str
     notes: str = ""
     writing_samples: list[str] = []
+    reference_urls: list[str] = []
 
 
 @router.post("", status_code=201)
@@ -47,6 +49,7 @@ def create_session(body: CreateSessionRequest, store: SessionStore = Depends(get
         audience=body.audience,
         notes=body.notes,
         writing_samples=body.writing_samples,
+        reference_urls=body.reference_urls,
     )
     store.create(session)
     return asdict(session)
