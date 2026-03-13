@@ -28,28 +28,25 @@ def analyze_style(writing_samples: list[str], reference_urls: list[str] = []) ->
     :param reference_urls: Optional URLs whose content should inform the style analysis.
     :returns: A concise description of the user's writing style and tone.
     """
+    parts = []
     if writing_samples:
         samples_text = "\n\n---\n\n".join(writing_samples)
-        prompt = (
-            f"Analyze the writing style in the following samples and describe "
-            f"the author's tone, voice, and stylistic preferences in 2-3 sentences.\n\n"
-            f"{samples_text}"
-        )
-    else:
-        prompt = (
-            "No writing samples were provided. Suggest a clear, engaging, "
-            "and accessible default writing style suitable for a blog post."
-        )
+        parts.append(f"Writing samples:\n\n{samples_text}")
 
     if reference_urls:
         urls_text = "\n".join(f"- {url}" for url in reference_urls)
-        prompt += (
-            f"\n\nAlso fetch and consider these reference URLs when forming your analysis:\n"
-            f"{urls_text}"
+        parts.append(
+            f"Also fetch and consider these reference URLs when forming your analysis:\n{urls_text}"
         )
         tools = [FETCH_URL_TOOL]
     else:
         tools = []
+
+    body = "\n\n".join(parts) if parts else "No samples or URLs provided."
+    prompt = (
+        f"{body}\n\n"
+        f"Describe the author's tone, voice, and stylistic preferences in 2-3 sentences."
+    )
 
     return run_agent_loop(
         messages=[{"role": "user", "content": prompt}],
