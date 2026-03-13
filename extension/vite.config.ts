@@ -6,6 +6,10 @@ import { resolve } from "path";
 // panel (React side panel), background (service worker), content (content script).
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: "happy-dom",
+    globals: true,
+  },
   build: {
     outDir: "dist",
     emptyOutDir: true,
