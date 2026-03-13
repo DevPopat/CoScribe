@@ -27,19 +27,17 @@ def make_mock_response(text: str) -> MagicMock:
     return response
 
 
-@patch("app.agents.research.client")
-def test_research_topic_returns_string(mock_client):
-    mock_client.messages.create.return_value = make_mock_response("Research findings about baking.")
+@patch("app.agents.research.run_agent_loop", return_value="Research findings about baking.")
+def test_research_topic_returns_string(mock_loop):
     result = research_topic("How to bake bread", "Beginners", notes="Focus on sourdough")
     assert isinstance(result, str)
     assert len(result) > 0
 
 
-@patch("app.agents.research.client")
-def test_research_topic_calls_claude(mock_client):
-    mock_client.messages.create.return_value = make_mock_response("Some research.")
+@patch("app.agents.research.run_agent_loop", return_value="Some research.")
+def test_research_topic_calls_claude(mock_loop):
     research_topic("How to bake bread", "Beginners")
-    mock_client.messages.create.assert_called_once()
+    mock_loop.assert_called_once()
 
 
 @patch("app.agents.style_analyzer.client")
