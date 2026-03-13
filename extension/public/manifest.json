@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "CoScribe",
+  "version": "0.1.0",
+  "description": "AI writing copilot — plan, draft, and insert content into any web editor.",
+  "permissions": ["sidePanel", "activeTab"],
+  "side_panel": {
+    "default_path": "panel.html"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "action": {
+    "default_title": "Open CoScribe"
+  }
+}
