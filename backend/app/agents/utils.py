@@ -6,6 +6,8 @@ fetching, a helper for fetching and parsing HTML pages, and
 ``run_agent_loop()`` which drives the tool_use / end_turn cycle for any agent.
 """
 
+import time
+
 import anthropic
 import httpx
 from bs4 import BeautifulSoup
@@ -86,15 +88,25 @@ def run_agent_loop(
         if system:
             kwargs["system"] = system
 
-        response = client.messages.create(**kwargs)
+        for attempt in range(5):
+            try:
+                response = client.messages.create(**kwargs)
+                break
+            except anthropic.RateLimitError:
+                if attempt == 4:
+                    raise
+                wait = 15 * (2 ** attempt)
+                time.sleep(wait)
 
-        if response.stop_reason == "end_turn":
+        # Continue the loop only when the model explicitly requests tool use.
+        # For all other stop reasons (end_turn, max_tokens, etc.), return text.
+        if response.stop_reason != "tool_use":
             for block in response.content:
                 if hasattr(block, "text"):
                     return block.text
             return ""
 
-        # Handle tool_use blocks
+        # Handle client-side tool_use blocks
         tool_results = []
         for block in response.content:
             if block.type == "tool_use":
@@ -111,4 +123,4 @@ def run_agent_loop(
                 )
 
         messages.append({"role": "assistant", "content": response.content})
-        messages.append({"role": "user", "content": tool_results})
+        messages.append({"role": "user", "content": tool_results or "Continue."})

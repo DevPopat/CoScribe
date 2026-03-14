@@ -47,10 +47,12 @@ async def generate_plan(
     session.status = "planning"
     store.update(session)
 
-    # Phase 1: research + style analysis in parallel
-    research_result, style_result = await asyncio.gather(
-        asyncio.to_thread(research_topic, session.topic, session.audience, session.notes),
-        asyncio.to_thread(analyze_style, session.writing_samples, session.reference_urls),
+    # Phase 1: research, then style analysis (sequential to stay within rate limits)
+    research_result = await asyncio.to_thread(
+        research_topic, session.topic, session.audience, session.notes
+    )
+    style_result = await asyncio.to_thread(
+        analyze_style, session.writing_samples, session.reference_urls
     )
 
     # Phase 2: synthesize outline from research + style

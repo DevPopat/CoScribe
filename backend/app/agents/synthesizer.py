@@ -6,6 +6,10 @@ that is parsed directly into an ``Outline`` Pydantic model.
 """
 
 import json
+import re
+import time
+
+import anthropic
 
 from app.agents.utils import client
 from app.models.outline import Outline
@@ -50,10 +54,21 @@ def synthesize_outline(
         f"{_OUTLINE_SCHEMA}\n\n"
         f"Return only valid JSON with no markdown fences or extra text."
     )
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        messages=[{"role": "user", "content": prompt}],
-    )
+    for attempt in range(5):
+        try:
+            response = client.messages.create(
+                model="claude-sonnet-4-6",
+                max_tokens=2048,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            break
+        except anthropic.RateLimitError:
+            if attempt == 4:
+                raise
+            time.sleep(15 * (2 ** attempt))
+
     raw = response.content[0].text
+    # Strip markdown fences the model may wrap around the JSON
+    raw = re.sub(r"^```(?:json)?\s*\n?", "", raw.strip())
+    raw = re.sub(r"\n?```\s*$", "", raw.strip())
     return Outline.model_validate(json.loads(raw))
