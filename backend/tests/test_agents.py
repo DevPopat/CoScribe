@@ -213,15 +213,59 @@ def test_run_agent_loop_unknown_tool_returns_empty(mock_client):
 
 
 @patch("app.agents.intake.client")
-def test_intake_ready_when_enough_info(mock_client):
-    """Returns ready=True with extracted fields when topic and audience are present."""
+def test_intake_asks_for_samples_when_only_topic_and_audience_given(mock_client):
+    """Even with topic and audience, agent should ask for writing samples before marking ready."""
     mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
-        "reply": "Great, I have everything I need. Let me build your outline!",
+        "reply": "Got it! Do you have any writing samples or previous articles I can use to match your style? Share URLs or paste text — or just say 'skip'.",
+        "ready": False,
+    }))
+    from app.agents.intake import extract_session_params
+
+    result = extract_session_params([
+        {"role": "user", "content": "Write about remote work for engineering managers."}
+    ])
+
+    assert result["ready"] is False
+    assert "extracted" not in result
+    assert isinstance(result["reply"], str)
+
+
+@patch("app.agents.intake.client")
+def test_intake_ready_when_samples_provided(mock_client):
+    """Returns ready=True once topic, audience, and writing samples are all present."""
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "reply": "Perfect, I have everything I need. Building your outline now!",
         "ready": True,
         "extracted": {
             "topic": "The future of remote work",
             "audience": "Engineering managers",
             "notes": "Focus on async communication",
+            "writing_samples": [],
+            "reference_urls": ["https://myblog.com/post-1"],
+        },
+    }))
+    from app.agents.intake import extract_session_params
+
+    result = extract_session_params([
+        {"role": "user", "content": "Write about remote work for engineering managers."},
+        {"role": "assistant", "content": "Do you have any writing samples?"},
+        {"role": "user", "content": "Sure, here: https://myblog.com/post-1"},
+    ])
+
+    assert result["ready"] is True
+    assert result["extracted"]["topic"] == "The future of remote work"
+    assert result["extracted"]["reference_urls"] == ["https://myblog.com/post-1"]
+
+
+@patch("app.agents.intake.client")
+def test_intake_ready_when_user_skips_samples(mock_client):
+    """Returns ready=True when user explicitly declines to provide writing samples."""
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "reply": "No problem, I'll work with a neutral style. Building your outline!",
+        "ready": True,
+        "extracted": {
+            "topic": "Machine learning for beginners",
+            "audience": "Students",
             "writing_samples": [],
             "reference_urls": [],
         },
@@ -229,13 +273,14 @@ def test_intake_ready_when_enough_info(mock_client):
     from app.agents.intake import extract_session_params
 
     result = extract_session_params([
-        {"role": "user", "content": "Write about remote work for engineering managers. Focus on async comms."}
+        {"role": "user", "content": "Write about ML for students."},
+        {"role": "assistant", "content": "Do you have any writing samples?"},
+        {"role": "user", "content": "No, just skip that."},
     ])
 
     assert result["ready"] is True
-    assert result["extracted"]["topic"] == "The future of remote work"
-    assert result["extracted"]["audience"] == "Engineering managers"
-    assert isinstance(result["reply"], str)
+    assert result["extracted"]["writing_samples"] == []
+    assert result["extracted"]["reference_urls"] == []
 
 
 @patch("app.agents.intake.client")
