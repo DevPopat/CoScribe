@@ -48,14 +48,47 @@ def make_tool_use_response(
 # -- Research agent -----------------------------------------------------------
 
 
-@patch("app.agents.research.run_agent_loop", return_value="Research findings about baking.")
-def test_research_topic_returns_string(mock_loop):
+@patch("app.agents.research.run_agent_loop", return_value=json.dumps({
+    "summary": "Baking bread requires flour, water, yeast, and patience.",
+    "urls": ["https://example.com/bread-guide"],
+}))
+def test_research_topic_returns_dict(mock_loop):
     result = research_topic("How to bake bread", "Beginners", notes="Focus on sourdough")
-    assert isinstance(result, str)
-    assert len(result) > 0
+    assert isinstance(result, dict)
+    assert "summary" in result
+    assert "urls" in result
 
 
-@patch("app.agents.research.run_agent_loop", return_value="Some research.")
+@patch("app.agents.research.run_agent_loop", return_value=json.dumps({
+    "summary": "Key findings about baking.",
+    "urls": ["https://example.com/a", "https://example.com/b"],
+}))
+def test_research_topic_returns_urls(mock_loop):
+    result = research_topic("How to bake bread", "Beginners")
+    assert result["urls"] == ["https://example.com/a", "https://example.com/b"]
+
+
+@patch("app.agents.research.run_agent_loop", return_value=json.dumps({
+    "summary": "Summary with no URLs.",
+    "urls": [],
+}))
+def test_research_topic_returns_empty_urls_when_none_fetched(mock_loop):
+    result = research_topic("How to bake bread", "Beginners")
+    assert result["urls"] == []
+    assert isinstance(result["summary"], str)
+
+
+@patch("app.agents.research.run_agent_loop", return_value=(
+    "```json\n" + json.dumps({"summary": "Bread facts.", "urls": []}) + "\n```"
+))
+def test_research_topic_strips_markdown_fences(mock_loop):
+    result = research_topic("How to bake bread", "Beginners")
+    assert result["summary"] == "Bread facts."
+
+
+@patch("app.agents.research.run_agent_loop", return_value=json.dumps({
+    "summary": "Research.", "urls": [],
+}))
 def test_research_topic_calls_loop(mock_loop):
     research_topic("How to bake bread", "Beginners")
     mock_loop.assert_called_once()
