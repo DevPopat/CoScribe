@@ -209,6 +209,86 @@ def test_run_agent_loop_unknown_tool_returns_empty(mock_client):
     assert mock_client.messages.create.call_count == 2
 
 
+# -- Intake agent -------------------------------------------------------------
+
+
+@patch("app.agents.intake.client")
+def test_intake_ready_when_enough_info(mock_client):
+    """Returns ready=True with extracted fields when topic and audience are present."""
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "reply": "Great, I have everything I need. Let me build your outline!",
+        "ready": True,
+        "extracted": {
+            "topic": "The future of remote work",
+            "audience": "Engineering managers",
+            "notes": "Focus on async communication",
+            "writing_samples": [],
+            "reference_urls": [],
+        },
+    }))
+    from app.agents.intake import extract_session_params
+
+    result = extract_session_params([
+        {"role": "user", "content": "Write about remote work for engineering managers. Focus on async comms."}
+    ])
+
+    assert result["ready"] is True
+    assert result["extracted"]["topic"] == "The future of remote work"
+    assert result["extracted"]["audience"] == "Engineering managers"
+    assert isinstance(result["reply"], str)
+
+
+@patch("app.agents.intake.client")
+def test_intake_not_ready_when_missing_audience(mock_client):
+    """Returns ready=False with a follow-up question when audience is missing."""
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "reply": "Who is the target audience for this piece?",
+        "ready": False,
+    }))
+    from app.agents.intake import extract_session_params
+
+    result = extract_session_params([
+        {"role": "user", "content": "I want to write about machine learning."}
+    ])
+
+    assert result["ready"] is False
+    assert "extracted" not in result
+    assert isinstance(result["reply"], str)
+
+
+@patch("app.agents.intake.client")
+def test_intake_passes_full_conversation(mock_client):
+    """Passes the full message history to the model."""
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "reply": "Got it!",
+        "ready": True,
+        "extracted": {"topic": "ML", "audience": "Students", "writing_samples": [], "reference_urls": []},
+    }))
+    from app.agents.intake import extract_session_params
+
+    messages = [
+        {"role": "user", "content": "I want to write about ML."},
+        {"role": "assistant", "content": "Who is your audience?"},
+        {"role": "user", "content": "University students."},
+    ]
+    extract_session_params(messages)
+
+    call_kwargs = mock_client.messages.create.call_args.kwargs
+    assert call_kwargs["messages"] == messages
+
+
+@patch("app.agents.intake.client")
+def test_intake_strips_markdown_fences(mock_client):
+    """Handles model wrapping JSON in markdown fences."""
+    mock_client.messages.create.return_value = make_end_turn_response(
+        "```json\n" + json.dumps({"reply": "Hi", "ready": False}) + "\n```"
+    )
+    from app.agents.intake import extract_session_params
+
+    result = extract_session_params([{"role": "user", "content": "Hello"}])
+    assert result["ready"] is False
+
+
 # -- Refine agent -------------------------------------------------------------
 
 
