@@ -6,6 +6,17 @@ def test_section_defaults():
     section = Section(title="Introduction", key_points=["Hook", "Context"])
     assert section.draft is None
     assert section.approved is False
+    assert section.sources == []
+
+
+def test_section_sources_roundtrip_json():
+    section = Section(
+        title="Research",
+        key_points=["Fact A"],
+        sources=["https://example.com/a", "https://example.com/b"],
+    )
+    restored = Section.model_validate_json(section.model_dump_json())
+    assert restored.sources == ["https://example.com/a", "https://example.com/b"]
 
 
 def test_section_roundtrip_json():

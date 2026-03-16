@@ -11,6 +11,7 @@ const noEditor: EditorStatus = { detected: false, tier: "none", element: null };
 const sectionNoDraft: Section = {
   title: "Intro",
   key_points: ["Why bake?", "What you need"],
+  sources: [],
   draft: null,
   approved: false,
 };

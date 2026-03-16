@@ -10,6 +10,7 @@ export type SessionStatus =
 export interface Section {
   title: string;
   key_points: string[];
+  sources: string[];
   draft: string | null;
   approved: boolean;
 }
@@ -53,6 +54,34 @@ export interface DraftResponse {
 export interface ApproveResponse {
   approved: boolean;
   section_index: number;
+}
+
+export interface ChatRequest {
+  messages: { role: "user" | "assistant"; content: string }[];
+}
+
+export interface ChatResponse {
+  reply: string;
+  ready: boolean;
+  extracted?: {
+    topic: string;
+    audience: string;
+    notes?: string;
+    writing_samples?: string[];
+    reference_urls?: string[];
+  };
+}
+
+export interface SectionRefineRequest {
+  message: string;
+  current_draft: string;
+}
+
+export interface SectionRefineResponse {
+  draft: string;
+  key_points?: string[];
+  sources?: string[];
+  reply: string;
 }
 
 // Editor adapter types used by the content script.

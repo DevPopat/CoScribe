@@ -10,8 +10,8 @@ const outline: Outline = {
   brief: "A beginner guide.",
   tone_guidance: "Friendly",
   sections: [
-    { title: "Intro", key_points: ["Why bake?"], draft: null, approved: false },
-    { title: "Process", key_points: ["Mixing"], draft: "Draft.", approved: true },
+    { title: "Intro", key_points: ["Why bake?"], sources: [], draft: null, approved: false },
+    { title: "Process", key_points: ["Mixing"], sources: [], draft: "Draft.", approved: true },
   ],
 };
 

@@ -22,6 +22,7 @@ class Section(BaseModel):
 
     title: str
     key_points: list[str]
+    sources: list[str] = []
     draft: Optional[str] = None
     approved: bool = False
 
