@@ -17,7 +17,7 @@ _SYSTEM_PROMPT = (
     "a JSON object with exactly two keys:\n"
     '  "outline" — the full updated outline matching this schema:\n'
     "    {\"title\": \"string\", \"brief\": \"string\", \"tone_guidance\": \"string\", "
-    "\"sections\": [{\"title\": \"string\", \"key_points\": [\"string\"]}]}\n"
+    "\"sections\": [{\"title\": \"string\", \"key_points\": [\"string\"], \"sources\": [\"string\"]}]}\n"
     '  "reply" — a short natural-language summary of what you changed.\n\n'
     "Return only valid JSON with no markdown fences or extra text. "
     "Use the web_search and fetch_url tools if you need additional context "

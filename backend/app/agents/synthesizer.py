@@ -22,7 +22,8 @@ _OUTLINE_SCHEMA = """
   "sections": [
     {
       "title": "string",
-      "key_points": ["string"]
+      "key_points": ["string"],
+      "sources": ["string"]
     }
   ]
 }
@@ -34,6 +35,7 @@ def synthesize_outline(
     audience: str,
     research: str,
     style: str,
+    research_urls: list[str] | None = None,
 ) -> Outline:
     """
     Synthesize planning agent outputs into a structured article outline.
@@ -42,13 +44,23 @@ def synthesize_outline(
     :param audience: Intended readership.
     :param research: Output from the research agent.
     :param style: Output from the style analyzer agent.
+    :param research_urls: URLs fetched during research to distribute across sections.
     :returns: A fully populated ``Outline`` ready for section drafting.
     """
+    urls_block = ""
+    if research_urls:
+        urls_list = "\n".join(f"  - {u}" for u in research_urls)
+        urls_block = (
+            f"\nResearch sources (distribute relevant URLs into each section's "
+            f"\"sources\" list):\n{urls_list}\n"
+        )
+
     prompt = (
         f"You are synthesizing a blog post outline.\n\n"
         f"Topic: {topic}\n"
         f"Audience: {audience}\n\n"
-        f"Research:\n{research}\n\n"
+        f"Research:\n{research}\n"
+        f"{urls_block}\n"
         f"Writing style:\n{style}\n\n"
         f"Produce a structured outline as JSON matching this schema exactly:\n"
         f"{_OUTLINE_SCHEMA}\n\n"

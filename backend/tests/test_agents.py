@@ -177,13 +177,71 @@ def test_synthesize_outline_sections_have_key_points(mock_client):
         "title": "Test",
         "brief": "brief",
         "tone_guidance": "neutral",
-        "sections": [{"title": "Intro", "key_points": ["Point A", "Point B"]}],
+        "sections": [{"title": "Intro", "key_points": ["Point A", "Point B"], "sources": []}],
     })
     mock_client.messages.create.return_value = make_end_turn_response(outline_json)
     result = synthesize_outline(
         topic="Test", audience="All", research="r", style="s"
     )
     assert result.sections[0].key_points == ["Point A", "Point B"]
+
+
+@patch("app.agents.synthesizer.client")
+def test_synthesize_outline_sections_have_sources(mock_client):
+    """Sources returned by the model are stored on each section."""
+    outline_json = json.dumps({
+        "title": "Test",
+        "brief": "brief",
+        "tone_guidance": "neutral",
+        "sections": [
+            {
+                "title": "Intro",
+                "key_points": ["Point A"],
+                "sources": ["https://example.com/a", "https://example.com/b"],
+            }
+        ],
+    })
+    mock_client.messages.create.return_value = make_end_turn_response(outline_json)
+    result = synthesize_outline(
+        topic="Test", audience="All", research="r", style="s"
+    )
+    assert result.sections[0].sources == [
+        "https://example.com/a",
+        "https://example.com/b",
+    ]
+
+
+@patch("app.agents.synthesizer.client")
+def test_synthesize_outline_includes_research_urls_in_prompt(mock_client):
+    """research_urls are passed into the prompt when provided."""
+    outline_json = json.dumps({
+        "title": "T", "brief": "b", "tone_guidance": "n",
+        "sections": [{"title": "S", "key_points": [], "sources": []}],
+    })
+    mock_client.messages.create.return_value = make_end_turn_response(outline_json)
+    synthesize_outline(
+        topic="Test",
+        audience="All",
+        research="r",
+        style="s",
+        research_urls=["https://source.com/1"],
+    )
+    prompt = mock_client.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "https://source.com/1" in prompt
+
+
+@patch("app.agents.synthesizer.client")
+def test_synthesize_outline_no_urls_prompt_unchanged(mock_client):
+    """When research_urls is empty the prompt works without URL section."""
+    outline_json = json.dumps({
+        "title": "T", "brief": "b", "tone_guidance": "n",
+        "sections": [{"title": "S", "key_points": [], "sources": []}],
+    })
+    mock_client.messages.create.return_value = make_end_turn_response(outline_json)
+    result = synthesize_outline(
+        topic="Test", audience="All", research="r", style="s"
+    )
+    assert isinstance(result, Outline)
 
 
 # -- Agent loop (multi-turn) --------------------------------------------------
@@ -377,7 +435,7 @@ def test_refine_outline_returns_updated_outline_and_reply(mock_loop):
             "title": "Updated Title",
             "brief": "Updated brief",
             "tone_guidance": "Casual",
-            "sections": [{"title": "New Intro", "key_points": ["Point 1"]}],
+            "sections": [{"title": "New Intro", "key_points": ["Point 1"], "sources": []}],
         },
         "reply": "I changed the title and restructured the intro.",
     })
@@ -394,3 +452,27 @@ def test_refine_outline_returns_updated_outline_and_reply(mock_loop):
     assert updated.title == "Updated Title"
     assert reply == "I changed the title and restructured the intro."
     mock_loop.assert_called_once()
+
+
+@patch("app.agents.refine.run_agent_loop")
+def test_refine_outline_preserves_sources(mock_loop):
+    """Sources on sections are preserved when the refine agent returns them."""
+    mock_loop.return_value = json.dumps({
+        "outline": {
+            "title": "T", "brief": "b", "tone_guidance": "n",
+            "sections": [{"title": "S", "key_points": [], "sources": ["https://src.com"]}],
+        },
+        "reply": "Done.",
+    })
+    current = Outline(
+        title="T", brief="b", tone_guidance="n",
+        sections=[Section(title="S", key_points=[], sources=["https://src.com"])],
+    )
+    updated, _ = refine_outline(current, [], "tweak it")
+    assert updated.sections[0].sources == ["https://src.com"]
+
+
+def test_refine_system_prompt_includes_sources_schema():
+    """The refine agent's system prompt should mention sources in the schema."""
+    from app.agents.refine import _SYSTEM_PROMPT
+    assert "sources" in _SYSTEM_PROMPT
