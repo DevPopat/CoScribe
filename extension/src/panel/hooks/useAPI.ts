@@ -2,10 +2,12 @@
 
 import type {
   ApproveResponse,
+  ChatResponse,
   CreateSessionParams,
   DraftResponse,
   Outline,
   RefineResponse,
+  SectionRefineResponse,
   WritingSession,
 } from "../../types";
 
@@ -62,6 +64,24 @@ const api = {
   ): Promise<ApproveResponse> {
     return post(`/sessions/${sessionId}/sections/${sectionIndex}/approve`, {
       text: text ?? null,
+    });
+  },
+
+  chatIntake(
+    messages: { role: "user" | "assistant"; content: string }[],
+  ): Promise<ChatResponse> {
+    return post("/sessions/chat", { messages });
+  },
+
+  refineSectionDraft(
+    sessionId: string,
+    sectionIndex: number,
+    message: string,
+    currentDraft: string,
+  ): Promise<SectionRefineResponse> {
+    return post(`/sessions/${sessionId}/sections/${sectionIndex}/refine`, {
+      message,
+      current_draft: currentDraft,
     });
   },
 };
