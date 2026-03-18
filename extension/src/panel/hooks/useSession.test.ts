@@ -12,7 +12,14 @@ vi.mock("./useAPI", () => ({
     draftSection: vi.fn(),
     approveSection: vi.fn(),
     refinePlan: vi.fn(),
+    chatIntake: vi.fn(),
+    refineSectionDraft: vi.fn(),
   },
+}));
+
+// useLocalStorage is a side-effect; silence it in tests
+vi.mock("./useLocalStorage", () => ({
+  default: () => ({ save: vi.fn(), load: () => null }),
 }));
 
 const mockSession: WritingSession = {
@@ -242,6 +249,13 @@ describe("useSession", () => {
     expect(result.current.isRefining).toBe(false);
   });
 
+  it("exposes chatHistory, sectionChats, and currentView", () => {
+    const { result } = renderHook(() => useSession());
+    expect(result.current.chatHistory).toEqual([]);
+    expect(result.current.sectionChats).toEqual({});
+    expect(result.current.currentView).toBe("chat");
+  });
+
   it("clearOutlineChanged resets the flag", async () => {
     vi.mocked(api.createSession).mockResolvedValue(mockSession);
     vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
@@ -266,5 +280,140 @@ describe("useSession", () => {
     });
 
     expect(result.current.outlineChanged).toBe(false);
+  });
+
+  // -- sendChatMessage ----------------------------------------------------------
+
+  it("sendChatMessage appends user and assistant messages to chatHistory", async () => {
+    vi.mocked(api.chatIntake).mockResolvedValue({ reply: "What's your audience?", ready: false });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => {
+      await result.current.sendChatMessage("Write about ML.");
+    });
+
+    expect(result.current.chatHistory).toHaveLength(2);
+    expect(result.current.chatHistory[0]).toEqual({ role: "user", content: "Write about ML." });
+    expect(result.current.chatHistory[1]).toEqual({ role: "assistant", content: "What's your audience?" });
+  });
+
+  it("sendChatMessage calls chatIntake with full history", async () => {
+    vi.mocked(api.chatIntake).mockResolvedValue({ reply: "Got it!", ready: false });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.sendChatMessage("First message."); });
+    vi.mocked(api.chatIntake).mockResolvedValue({ reply: "Done.", ready: false });
+    await act(async () => { await result.current.sendChatMessage("Second message."); });
+
+    const lastCall = vi.mocked(api.chatIntake).mock.calls[1][0];
+    expect(lastCall).toHaveLength(3); // 2 prior turns + new user message
+  });
+
+  it("sendChatMessage when ready creates session and generates plan", async () => {
+    vi.mocked(api.chatIntake).mockResolvedValue({
+      reply: "Ready!",
+      ready: true,
+      extracted: { topic: "ML", audience: "Students" },
+    });
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.sendChatMessage("Let's go."); });
+
+    expect(api.createSession).toHaveBeenCalledWith({ topic: "ML", audience: "Students" });
+    expect(api.generatePlan).toHaveBeenCalledWith("sess-1");
+    expect(result.current.outline?.title).toBe("How to Bake Bread");
+  });
+
+  it("sendChatMessage when ready sets currentView to draft", async () => {
+    vi.mocked(api.chatIntake).mockResolvedValue({
+      reply: "Ready!",
+      ready: true,
+      extracted: { topic: "ML", audience: "Students" },
+    });
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.sendChatMessage("Go."); });
+
+    expect(result.current.currentView).toBe("draft");
+  });
+
+  it("sendChatMessage when not ready keeps currentView as chat", async () => {
+    vi.mocked(api.chatIntake).mockResolvedValue({ reply: "Who is your audience?", ready: false });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.sendChatMessage("Write about ML."); });
+
+    expect(result.current.currentView).toBe("chat");
+  });
+
+  // -- refineSectionDraft -------------------------------------------------------
+
+  it("refineSectionDraft calls api with sessionId, sectionIndex, message, and current draft", async () => {
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    vi.mocked(api.draftSection).mockResolvedValue({ draft: "Original draft." });
+    vi.mocked(api.refineSectionDraft).mockResolvedValue({
+      draft: "Refined draft.",
+      reply: "Tightened it.",
+    });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.startSession({ topic: "Baking bread", audience: "Beginners" }); });
+    await act(async () => { await result.current.draftSection(0); });
+    await act(async () => { await result.current.refineSectionDraft(0, "Make it shorter."); });
+
+    expect(api.refineSectionDraft).toHaveBeenCalledWith("sess-1", 0, "Make it shorter.", "Original draft.");
+  });
+
+  it("refineSectionDraft updates the section draft", async () => {
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    vi.mocked(api.draftSection).mockResolvedValue({ draft: "Original." });
+    vi.mocked(api.refineSectionDraft).mockResolvedValue({ draft: "Refined.", reply: "Done." });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.startSession({ topic: "Baking bread", audience: "Beginners" }); });
+    await act(async () => { await result.current.draftSection(0); });
+    await act(async () => { await result.current.refineSectionDraft(0, "Shorter."); });
+
+    expect(result.current.outline?.sections[0].draft).toBe("Refined.");
+  });
+
+  it("refineSectionDraft updates key_points when returned", async () => {
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    vi.mocked(api.draftSection).mockResolvedValue({ draft: "Draft." });
+    vi.mocked(api.refineSectionDraft).mockResolvedValue({
+      draft: "Draft.",
+      key_points: ["New point"],
+      reply: "Updated.",
+    });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.startSession({ topic: "Baking bread", audience: "Beginners" }); });
+    await act(async () => { await result.current.draftSection(0); });
+    await act(async () => { await result.current.refineSectionDraft(0, "Add a point."); });
+
+    expect(result.current.outline?.sections[0].key_points).toEqual(["New point"]);
+  });
+
+  it("refineSectionDraft appends messages to sectionChats", async () => {
+    vi.mocked(api.createSession).mockResolvedValue(mockSession);
+    vi.mocked(api.generatePlan).mockResolvedValue(mockOutline);
+    vi.mocked(api.draftSection).mockResolvedValue({ draft: "Draft." });
+    vi.mocked(api.refineSectionDraft).mockResolvedValue({ draft: "Refined.", reply: "Tightened." });
+    const { result } = renderHook(() => useSession());
+
+    await act(async () => { await result.current.startSession({ topic: "Baking bread", audience: "Beginners" }); });
+    await act(async () => { await result.current.draftSection(0); });
+    await act(async () => { await result.current.refineSectionDraft(0, "Shorter."); });
+
+    expect(result.current.sectionChats[0]).toHaveLength(2);
+    expect(result.current.sectionChats[0][0]).toEqual({ role: "user", content: "Shorter." });
+    expect(result.current.sectionChats[0][1]).toEqual({ role: "assistant", content: "Tightened." });
   });
 });
