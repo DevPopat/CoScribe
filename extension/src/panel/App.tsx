@@ -1,26 +1,25 @@
+// Root panel component. Routes between ChatView (intake) and DraftView
+// (section editing) based on currentView from useSession.
+
 import React from "react";
 import useSession from "./hooks/useSession";
 import useEditorStatus from "./hooks/useEditorStatus";
-import TopicForm from "./components/TopicForm";
-import OutlineView from "./components/OutlineView";
-import SectionDraft from "./components/SectionDraft";
-import EditorStatus from "./components/EditorStatus";
+import ChatView from "./components/ChatView";
+import DraftView from "./components/DraftView";
 
 export default function App() {
   const {
-    session,
     outline,
     currentSectionIndex,
+    currentView,
     isLoading,
     error,
-    refinementHistory,
-    isRefining,
-    outlineChanged,
-    startSession,
+    chatHistory,
+    sectionChats,
+    sendChatMessage,
     draftSection,
     approveSection,
-    refineOutline,
-    clearOutlineChanged,
+    refineSectionDraft,
   } = useSession();
 
   const editorStatus = useEditorStatus();
@@ -33,51 +32,49 @@ export default function App() {
     });
   };
 
-  // Before plan: show form
-  if (!outline) {
-    return (
-      <div className="app">
-        <h1>CoScribe</h1>
-        {error && <p className="error">{error}</p>}
-        <TopicForm onSubmit={startSession} isLoading={isLoading} />
-        <EditorStatus status={editorStatus} />
-      </div>
-    );
-  }
+  const handleNewSession = () => {
+    const hasDraft = outline?.sections.some((s) => s.draft !== null);
+    if (hasDraft) {
+      const ok = window.confirm("You have unsaved drafts. Start a new session anyway?");
+      if (!ok) return;
+    }
+    window.location.reload();
+  };
 
-  const activeSection = outline.sections[currentSectionIndex];
-
-  // After plan: show outline + section draft
   return (
-    <div className="app">
-      <h1>CoScribe</h1>
-      {error && <p className="error">{error}</p>}
-      {session?.status === "complete" && <p>All sections complete!</p>}
+    <div className="app" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid #ddd" }}>
+        <h1 style={{ margin: 0, fontSize: "1rem" }}>CoScribe</h1>
+        <button onClick={handleNewSession}>+ New Session</button>
+      </header>
 
-      <OutlineView
-        outline={outline}
-        currentSectionIndex={currentSectionIndex}
-        onSelectSection={(i) => draftSection(i)}
-        refinementHistory={refinementHistory}
-        isRefining={isRefining}
-        outlineChanged={outlineChanged}
-        onRefine={refineOutline}
-        onOutlineTabClick={clearOutlineChanged}
-      />
+      <div style={{ flex: 1, overflow: "hidden" }}>
+        {currentView === "chat" && (
+          <ChatView
+            chatHistory={chatHistory}
+            outline={outline}
+            isLoading={isLoading}
+            onSend={sendChatMessage}
+            onDraft={draftSection}
+          />
+        )}
 
-      {activeSection && (
-        <SectionDraft
-          section={activeSection}
-          sectionIndex={currentSectionIndex}
-          editorStatus={editorStatus}
-          isLoading={isLoading}
-          onDraft={draftSection}
-          onApprove={approveSection}
-          onInsert={handleInsert}
-        />
-      )}
-
-      <EditorStatus status={editorStatus} />
+        {currentView === "draft" && outline && (
+          <DraftView
+            outline={outline}
+            currentSectionIndex={currentSectionIndex}
+            sectionChats={sectionChats}
+            editorStatus={editorStatus}
+            isLoading={isLoading}
+            error={error}
+            onBack={() => window.location.reload()}
+            onSelectSection={(i) => draftSection(i)}
+            onSave={(i, text) => approveSection(i, text)}
+            onInsert={handleInsert}
+            onRefineDraft={refineSectionDraft}
+          />
+        )}
+      </div>
     </div>
   );
 }
