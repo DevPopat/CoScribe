@@ -59,7 +59,12 @@ async def generate_plan(
 
     # Phase 2: synthesize outline from research + style
     outline = await asyncio.to_thread(
-        synthesize_outline, session.topic, session.audience, research_result, style_result
+        synthesize_outline,
+        session.topic,
+        session.audience,
+        research_result["summary"],
+        style_result,
+        research_urls=research_result["urls"],
     )
 
     session.outline = outline

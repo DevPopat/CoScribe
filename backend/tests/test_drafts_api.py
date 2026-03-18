@@ -47,7 +47,7 @@ def _mock_outline() -> Outline:
 
 @patch("app.api.drafts.synthesize_outline")
 @patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
-@patch("app.api.drafts.research_topic", return_value="Research findings.")
+@patch("app.api.drafts.research_topic", return_value={"summary": "Research findings.", "urls": []})
 def test_plan_returns_outline(mock_research, mock_style, mock_synth):
     mock_synth.return_value = _mock_outline()
     session_id = _create_session()
@@ -62,7 +62,7 @@ def test_plan_returns_outline(mock_research, mock_style, mock_synth):
 
 @patch("app.api.drafts.synthesize_outline")
 @patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
-@patch("app.api.drafts.research_topic", return_value="Research findings.")
+@patch("app.api.drafts.research_topic", return_value={"summary": "Research findings.", "urls": []})
 def test_plan_sets_session_status_to_outline_ready(mock_research, mock_style, mock_synth):
     mock_synth.return_value = _mock_outline()
     session_id = _create_session()
@@ -75,7 +75,7 @@ def test_plan_sets_session_status_to_outline_ready(mock_research, mock_style, mo
 
 @patch("app.api.drafts.synthesize_outline")
 @patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
-@patch("app.api.drafts.research_topic", return_value="Research findings.")
+@patch("app.api.drafts.research_topic", return_value={"summary": "Research findings.", "urls": []})
 def test_plan_stores_outline_on_session(mock_research, mock_style, mock_synth):
     mock_synth.return_value = _mock_outline()
     session_id = _create_session()
@@ -88,7 +88,7 @@ def test_plan_stores_outline_on_session(mock_research, mock_style, mock_synth):
 
 @patch("app.api.drafts.synthesize_outline")
 @patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
-@patch("app.api.drafts.research_topic", return_value="Research findings.")
+@patch("app.api.drafts.research_topic", return_value={"summary": "Research findings.", "urls": []})
 def test_plan_passes_session_fields_to_agents(mock_research, mock_style, mock_synth):
     mock_synth.return_value = _mock_outline()
     session_id = _create_session(
@@ -102,13 +102,60 @@ def test_plan_passes_session_fields_to_agents(mock_research, mock_style, mock_sy
     mock_research.assert_called_once_with("Baking bread", "Beginners", "Focus on sourdough")
     mock_style.assert_called_once_with(["Keep it short."], ["https://example.com"])
     mock_synth.assert_called_once_with(
-        "Baking bread", "Beginners", "Research findings.", "Friendly tone."
+        "Baking bread", "Beginners", "Research findings.", "Friendly tone.",
+        research_urls=[],
     )
 
 
 def test_plan_nonexistent_session_returns_404():
     resp = client.post("/sessions/does-not-exist/plan")
     assert resp.status_code == 404
+
+
+@patch("app.api.drafts.synthesize_outline")
+@patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
+@patch("app.api.drafts.research_topic", return_value={
+    "summary": "Research findings.", "urls": ["https://source.com"]
+})
+def test_plan_passes_research_summary_to_synthesize(mock_research, mock_style, mock_synth):
+    """generate_plan should unpack the research dict and pass summary to synthesize_outline."""
+    mock_synth.return_value = _mock_outline()
+    session_id = _create_session()
+
+    client.post(f"/sessions/{session_id}/plan")
+
+    call_kwargs = mock_synth.call_args
+    assert call_kwargs.args[2] == "Research findings."
+
+
+@patch("app.api.drafts.synthesize_outline")
+@patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
+@patch("app.api.drafts.research_topic", return_value={
+    "summary": "Research findings.", "urls": ["https://source.com"]
+})
+def test_plan_passes_research_urls_to_synthesize(mock_research, mock_style, mock_synth):
+    """generate_plan should pass urls from the research dict as research_urls kwarg."""
+    mock_synth.return_value = _mock_outline()
+    session_id = _create_session()
+
+    client.post(f"/sessions/{session_id}/plan")
+
+    call_kwargs = mock_synth.call_args
+    assert call_kwargs.kwargs.get("research_urls") == ["https://source.com"]
+
+
+@patch("app.api.drafts.synthesize_outline")
+@patch("app.api.drafts.analyze_style", return_value="Friendly tone.")
+@patch("app.api.drafts.research_topic", return_value={"summary": "Findings.", "urls": []})
+def test_plan_passes_empty_urls_when_research_returns_none(mock_research, mock_style, mock_synth):
+    """Empty urls list is passed through correctly."""
+    mock_synth.return_value = _mock_outline()
+    session_id = _create_session()
+
+    client.post(f"/sessions/{session_id}/plan")
+
+    call_kwargs = mock_synth.call_args
+    assert call_kwargs.kwargs.get("research_urls") == []
 
 
 # -- Refine endpoint ----------------------------------------------------------
@@ -130,7 +177,7 @@ def _plan_session(session_id: str) -> None:
     """Run /plan on a session so it has an outline to refine."""
     with patch("app.api.drafts.synthesize_outline", return_value=_mock_outline()), \
          patch("app.api.drafts.analyze_style", return_value="Friendly tone."), \
-         patch("app.api.drafts.research_topic", return_value="Research findings."):
+         patch("app.api.drafts.research_topic", return_value={"summary": "Research findings.", "urls": []}):
         resp = client.post(f"/sessions/{session_id}/plan")
         assert resp.status_code == 200
 
