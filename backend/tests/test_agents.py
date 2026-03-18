@@ -476,3 +476,79 @@ def test_refine_system_prompt_includes_sources_schema():
     """The refine agent's system prompt should mention sources in the schema."""
     from app.agents.refine import _SYSTEM_PROMPT
     assert "sources" in _SYSTEM_PROMPT
+
+
+# -- Section refine agent -----------------------------------------------------
+
+
+@patch("app.agents.section_refine.client")
+def test_refine_section_returns_updated_draft_and_reply(mock_client):
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "draft": "Refined draft text.",
+        "key_points": None,
+        "sources": None,
+        "reply": "Tightened the prose.",
+    }))
+    from app.agents.section_refine import refine_section
+
+    draft, key_points, sources, reply = refine_section(
+        outline_title="How to Bake Bread",
+        brief="A beginner guide.",
+        tone_guidance="Friendly",
+        section_title="Intro",
+        key_points=["Why bake?"],
+        sources=[],
+        current_draft="Long original draft.",
+        message="Make it shorter",
+    )
+
+    assert draft == "Refined draft text."
+    assert key_points is None
+    assert sources is None
+    assert reply == "Tightened the prose."
+
+
+@patch("app.agents.section_refine.client")
+def test_refine_section_returns_updated_key_points_and_sources(mock_client):
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "draft": "Updated draft.",
+        "key_points": ["Point A", "Point B"],
+        "sources": ["https://example.com"],
+        "reply": "Added new angle and source.",
+    }))
+    from app.agents.section_refine import refine_section
+
+    draft, key_points, sources, reply = refine_section(
+        outline_title="T", brief="b", tone_guidance="n",
+        section_title="S", key_points=["Old point"], sources=[],
+        current_draft="Draft.", message="Expand and cite a source",
+    )
+
+    assert key_points == ["Point A", "Point B"]
+    assert sources == ["https://example.com"]
+
+
+@patch("app.agents.section_refine.client")
+def test_refine_section_passes_context_in_prompt(mock_client):
+    mock_client.messages.create.return_value = make_end_turn_response(json.dumps({
+        "draft": "d", "key_points": None, "sources": None, "reply": "r",
+    }))
+    from app.agents.section_refine import refine_section
+
+    refine_section(
+        outline_title="Bread Guide",
+        brief="Beginners welcome.",
+        tone_guidance="Conversational",
+        section_title="Mixing",
+        key_points=["Combine flour and water"],
+        sources=["https://baking.com"],
+        current_draft="Mix the ingredients.",
+        message="Be more specific",
+    )
+
+    call_kwargs = mock_client.messages.create.call_args.kwargs
+    prompt = call_kwargs["messages"][0]["content"]
+    assert "Bread Guide" in prompt
+    assert "Mixing" in prompt
+    assert "Mix the ingredients." in prompt
+    assert "Be more specific" in prompt

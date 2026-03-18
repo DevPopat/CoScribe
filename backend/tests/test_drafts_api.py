@@ -351,3 +351,152 @@ def test_approve_all_sections_sets_status_complete(mock_draft):
 
     session_resp = client.get(f"/sessions/{session_id}")
     assert session_resp.json()["status"] == "complete"
+
+
+# -- Section refine endpoint --------------------------------------------------
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_returns_draft_and_reply(mock_refine):
+    mock_refine.return_value = ("Refined draft.", None, None, "Tightened the intro.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    resp = client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Make it shorter", "current_draft": "Long draft text."},
+    )
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["draft"] == "Refined draft."
+    assert data["reply"] == "Tightened the intro."
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_stores_updated_draft_on_section(mock_refine):
+    mock_refine.return_value = ("Refined draft.", None, None, "Done.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Be concise", "current_draft": "Original."},
+    )
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["draft"] == "Refined draft."
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_updates_key_points_when_agent_returns_them(mock_refine):
+    mock_refine.return_value = ("Draft.", ["New point A", "New point B"], None, "Updated points.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Add a new angle", "current_draft": "Draft."},
+    )
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["key_points"] == [
+        "New point A",
+        "New point B",
+    ]
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_keeps_key_points_when_agent_returns_none(mock_refine):
+    mock_refine.return_value = ("Draft.", None, None, "Just rewrote prose.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Fix grammar", "current_draft": "Draft."},
+    )
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["key_points"] == ["Why bake?"]
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_updates_sources_when_agent_returns_them(mock_refine):
+    mock_refine.return_value = ("Draft.", None, ["https://example.com"], "Added source.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Add a citation", "current_draft": "Draft."},
+    )
+
+    session_resp = client.get(f"/sessions/{session_id}")
+    assert session_resp.json()["outline"]["sections"][0]["sources"] == ["https://example.com"]
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_passes_correct_context_to_agent(mock_refine):
+    mock_refine.return_value = ("Draft.", None, None, "Done.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Be more vivid", "current_draft": "Original draft."},
+    )
+
+    mock_refine.assert_called_once_with(
+        "How to Bake Bread",
+        "A beginner guide.",
+        "Friendly",
+        "Intro",
+        ["Why bake?"],
+        [],
+        "Original draft.",
+        "Be more vivid",
+    )
+
+
+@patch("app.api.drafts.refine_section")
+def test_section_refine_returns_key_points_and_sources_in_response(mock_refine):
+    mock_refine.return_value = ("Draft.", ["Point A"], ["https://src.com"], "Updated.")
+    session_id = _create_session()
+    _plan_session(session_id)
+
+    resp = client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "Expand", "current_draft": "Draft."},
+    )
+
+    data = resp.json()
+    assert data["key_points"] == ["Point A"]
+    assert data["sources"] == ["https://src.com"]
+
+
+def test_section_refine_nonexistent_session_returns_404():
+    resp = client.post(
+        "/sessions/does-not-exist/sections/0/refine",
+        json={"message": "hi", "current_draft": "x"},
+    )
+    assert resp.status_code == 404
+
+
+def test_section_refine_without_outline_returns_400():
+    session_id = _create_session()
+    resp = client.post(
+        f"/sessions/{session_id}/sections/0/refine",
+        json={"message": "hi", "current_draft": "x"},
+    )
+    assert resp.status_code == 400
+
+
+def test_section_refine_out_of_range_section_returns_404():
+    session_id = _create_session()
+    _plan_session(session_id)
+    resp = client.post(
+        f"/sessions/{session_id}/sections/99/refine",
+        json={"message": "hi", "current_draft": "x"},
+    )
+    assert resp.status_code == 404

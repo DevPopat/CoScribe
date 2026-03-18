@@ -3,8 +3,9 @@ Plan generation, refinement, and section drafting API endpoints.
 
 Provides POST /sessions/{id}/plan to run the planning agents,
 POST /sessions/{id}/plan/refine to iteratively edit the outline,
-POST /sessions/{id}/sections/{n}/draft to draft a single section, and
-POST /sessions/{id}/sections/{n}/approve to approve (or edit) a draft.
+POST /sessions/{id}/sections/{n}/draft to draft a single section,
+POST /sessions/{id}/sections/{n}/approve to approve (or edit) a draft, and
+POST /sessions/{id}/sections/{n}/refine to refine a draft based on feedback.
 """
 
 import asyncio
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 
 from app.agents.drafter import draft_section
 from app.agents.refine import refine_outline
+from app.agents.section_refine import refine_section
 from app.agents.research import research_topic
 from app.agents.style_analyzer import analyze_style
 from app.agents.synthesizer import synthesize_outline
@@ -222,3 +224,69 @@ def approve_section(
     store.update(session)
 
     return {"approved": True, "section_index": section_index}
+
+
+class SectionRefineRequest(BaseModel):
+    """
+    Request body for refining a section draft.
+
+    :param message: The user's feedback or refinement instruction.
+    :param current_draft: The current draft text to refine.
+    """
+
+    message: str
+    current_draft: str
+
+
+@router.post("/{session_id}/sections/{section_index}/refine")
+async def refine_section_endpoint(
+    session_id: str,
+    section_index: int,
+    body: SectionRefineRequest,
+    store: SessionStore = Depends(get_store),
+) -> dict:
+    """
+    Refine a section draft based on user feedback.
+
+    Calls the section_refine agent with the current draft and user message,
+    stores the updated draft on the section, and optionally updates the
+    section's key_points and sources if the agent returns changes.
+
+    :param session_id: The UUID of the session.
+    :param section_index: Zero-based index of the section to refine.
+    :param body: The user's feedback message and current draft text.
+    :param store: Injected session store.
+    :returns: A dict with ``draft``, ``key_points``, ``sources``, and ``reply`` keys.
+    :raises HTTPException: 404 if session or section not found, 400 if no outline.
+    """
+    session = store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    section = _get_section(session, section_index)
+
+    updated_draft, updated_key_points, updated_sources, reply = await asyncio.to_thread(
+        refine_section,
+        session.outline.title,
+        session.outline.brief,
+        session.outline.tone_guidance,
+        section.title,
+        section.key_points,
+        section.sources,
+        body.current_draft,
+        body.message,
+    )
+
+    section.draft = updated_draft
+    if updated_key_points is not None:
+        section.key_points = updated_key_points
+    if updated_sources is not None:
+        section.sources = updated_sources
+    store.update(session)
+
+    return {
+        "draft": updated_draft,
+        "key_points": updated_key_points,
+        "sources": updated_sources,
+        "reply": reply,
+    }
