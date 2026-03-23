@@ -2,9 +2,11 @@
 Research agent — gathers topic context and supporting points.
 
 Uses an agentic loop with web_search and fetch_url tools so the agent can
-actively look up current facts before summarising its findings. Returns a
-structured dict with a text summary and the list of URLs fetched during
-research so callers can attribute sources to outline sections.
+actively look up current facts before summarising its findings. The loop runs
+via OpenAI (gpt-4o-search-preview) so that research can execute concurrently
+with the Anthropic-backed style analyzer without sharing the same rate-limit
+pool. Returns a structured dict with a text summary and the list of URLs
+fetched during research so callers can attribute sources to outline sections.
 """
 
 import json
@@ -48,6 +50,7 @@ def research_topic(topic: str, audience: str, notes: str = "") -> dict:
         messages=[{"role": "user", "content": prompt}],
         tools=[WEB_SEARCH_TOOL, FETCH_URL_TOOL],
         system=_SYSTEM_PROMPT,
+        provider="openai",
     )
     raw = re.sub(r"^```(?:json)?\s*\n?", "", raw.strip())
     raw = re.sub(r"\n?```\s*$", "", raw.strip())
