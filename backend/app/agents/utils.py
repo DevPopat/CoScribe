@@ -116,6 +116,21 @@ def _run_anthropic_loop(
 
         logger.info("[anthropic] turn %d — stop_reason=%s, content_blocks=%d", turn, response.stop_reason, len(response.content))
 
+        # If the response was truncated, feed it back and ask for a shorter version.
+        if response.stop_reason == "max_tokens":
+            logger.warning("[anthropic] turn %d — hit max_tokens, asking model to retry concisely", turn)
+            messages.append({"role": "assistant", "content": response.content})
+            messages.append({
+                "role": "user",
+                "content": (
+                    "Your response was cut off because it exceeded the token limit. "
+                    "Please provide a much shorter and more concise response in the "
+                    "same JSON format. Summarize key points only — do not include "
+                    "extensive detail, code blocks, or long explanations."
+                ),
+            })
+            continue
+
         if response.stop_reason != "tool_use":
             for block in response.content:
                 if hasattr(block, "text"):
