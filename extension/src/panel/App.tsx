@@ -50,6 +50,10 @@ export default function App() {
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: `1px solid ${darkMode ? "#444" : "#ddd"}` }}>
         <h1 style={{ margin: 0, fontSize: "1rem" }}>CoScribe</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.75rem" }} title={editorStatus.detected ? `Editor detected: ${editorStatus.tier}` : "No editor detected"}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: editorStatus.detected ? "#27AE60" : "#999", display: "inline-block" }} />
+            {editorStatus.detected ? "Editor" : "No editor"}
+          </span>
           <label style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.8rem", cursor: "pointer" }}>
             <input type="checkbox" checked={darkMode} onChange={(e) => setDarkMode(e.target.checked)} />
             Dark

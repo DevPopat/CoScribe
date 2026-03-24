@@ -52,7 +52,7 @@ export default function ChatView({
           <div
             data-testid="welcome-message"
             className="welcome-message"
-            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6, color: darkMode ? "#fff" : "#1c1c1e" }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6, color: darkMode ? "#fff" : "#1c1c1e", fontSize: "1.5rem" }}
           >
             What would you like to write about?
           </div>
