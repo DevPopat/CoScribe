@@ -47,12 +47,12 @@ export default function ChatView({
 
   return (
     <div className="chat-view" data-testid="chat-view" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="chat-messages" style={{ flex: 1, overflowY: "auto", padding: "12px" }}>
+      <div className="chat-messages" style={{ flex: 1, overflowY: "auto", padding: "12px", display: "flex", flexDirection: "column" }}>
         {chatHistory.length === 0 && !isLoading && (
           <div
             data-testid="welcome-message"
             className="welcome-message"
-            style={{ textAlign: "center", opacity: 0.6, marginTop: "40px", color: darkMode ? "#fff" : "#1c1c1e" }}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", opacity: 0.6, color: darkMode ? "#fff" : "#1c1c1e" }}
           >
             What would you like to write about?
           </div>
@@ -75,7 +75,7 @@ export default function ChatView({
                 maxWidth: "75%",
                 padding: "8px 12px",
                 borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                background: msg.role === "user" ? "#007AFF" : darkMode ? "#3a3a3c" : "#E9E9EB",
+                background: msg.role === "user" ? "#D2691E" : darkMode ? "#3a3a3c" : "#E9E9EB",
                 color: msg.role === "user" ? "#fff" : darkMode ? "#fff" : "#1c1c1e",
                 fontSize: "0.875rem",
                 lineHeight: "1.4",

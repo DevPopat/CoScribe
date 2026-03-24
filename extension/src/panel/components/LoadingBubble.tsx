@@ -70,11 +70,7 @@ export default function LoadingBubble({ phase }: LoadingBubbleProps) {
       role="status"
       aria-live="polite"
       style={{
-        display: "inline-block",
-        maxWidth: "75%",
-        padding: "8px 12px",
-        borderRadius: "16px 16px 16px 4px",
-        background: "#E9E9EB",
+        padding: "4px 12px",
         fontSize: "0.875rem",
         lineHeight: "1.4",
       }}
