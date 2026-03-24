@@ -13,16 +13,22 @@ import re
 
 from app.agents.utils import FETCH_URL_TOOL, WEB_SEARCH_TOOL, run_agent_loop
 
+_RESPONSE_SCHEMA = """
+{
+  "summary": "string — concise summary of key facts, angles, and supporting points",
+  "urls": ["string — every URL you fetched via fetch_url; empty list if none"]
+}
+"""
+
 _SYSTEM_PROMPT = (
-    "You are a research assistant helping plan write a blog post/article. "
+    "You are a research assistant helping plan a blog post/article. "
     "Use the web_search tool to find relevant, up-to-date information and the "
-    "fetch_url tool to read specific pages when useful. "
-    "After gathering enough context, respond with valid JSON in this exact format "
-    "(no markdown fences, no extra text):\n"
-    '{"summary": "<concise summary of key facts, angles, and supporting points>", '
-    '"urls": ["<url1>", "<url2>"]}\n'
-    "The urls list should contain every URL you fetched via fetch_url. "
-    "If you fetched no URLs, use an empty list."
+    "fetch_url tool to read specific pages when useful.\n\n"
+    "When you have gathered enough context, respond with ONLY valid JSON — "
+    "no markdown fences, no commentary, no extra text before or after. "
+    "Your entire response must be a single JSON object matching this schema:\n"
+    f"{_RESPONSE_SCHEMA}\n"
+    "Do NOT include any text outside the JSON object."
 )
 
 
