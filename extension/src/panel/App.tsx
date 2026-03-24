@@ -20,6 +20,7 @@ export default function App() {
     draftSection,
     approveSection,
     refineSectionDraft,
+    clearSession,
   } = useSession();
 
   const editorStatus = useEditorStatus();
@@ -38,6 +39,7 @@ export default function App() {
       const ok = window.confirm("You have unsaved drafts. Start a new session anyway?");
       if (!ok) return;
     }
+    clearSession();
     window.location.reload();
   };
 

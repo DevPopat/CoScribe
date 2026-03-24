@@ -42,6 +42,7 @@ export interface UseSessionReturn {
   refineOutline: (message: string) => Promise<void>;
   refineSectionDraft: (sectionIndex: number, message: string) => Promise<void>;
   clearOutlineChanged: () => void;
+  clearSession: () => void;
 }
 
 export default function useSession(): UseSessionReturn {
@@ -285,6 +286,10 @@ export default function useSession(): UseSessionReturn {
     setOutlineChanged(false);
   }, []);
 
+  const clearSession = useCallback(() => {
+    storage.clear();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return {
     session,
     outline,
@@ -304,5 +309,6 @@ export default function useSession(): UseSessionReturn {
     refineOutline,
     refineSectionDraft,
     clearOutlineChanged,
+    clearSession,
   };
 }

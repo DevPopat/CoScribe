@@ -36,7 +36,7 @@ export default function ChatView({
     onSend(text);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -59,15 +59,30 @@ export default function ChatView({
         {chatHistory.map((msg, i) => (
           <div
             key={i}
-            data-testid={`message-${i}`}
-            data-role={msg.role}
-            className={`chat-bubble chat-bubble--${msg.role}`}
             style={{
-              textAlign: msg.role === "user" ? "right" : "left",
+              display: "flex",
+              justifyContent: msg.role === "user" ? "flex-end" : "flex-start",
               marginBottom: "8px",
             }}
           >
-            {msg.content}
+            <div
+              data-testid={`message-${i}`}
+              data-role={msg.role}
+              className={`chat-bubble chat-bubble--${msg.role}`}
+              style={{
+                maxWidth: "75%",
+                padding: "8px 12px",
+                borderRadius: msg.role === "user" ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                background: msg.role === "user" ? "#007AFF" : "#E9E9EB",
+                color: msg.role === "user" ? "#fff" : "#1c1c1e",
+                fontSize: "0.875rem",
+                lineHeight: "1.4",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {msg.content}
+            </div>
           </div>
         ))}
 
@@ -80,14 +95,14 @@ export default function ChatView({
         {isLoading && <LoadingBubble phase="planning" />}
       </div>
 
-      <div className="chat-input-row" style={{ display: "flex", gap: "8px", padding: "8px" }}>
-        <input
-          type="text"
+      <div className="chat-input-row" style={{ display: "flex", gap: "8px", padding: "8px", alignItems: "flex-end" }}>
+        <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Type a message…"
-          style={{ flex: 1 }}
+          placeholder="Type a message… (Enter to send, Shift+Enter for new line)"
+          rows={3}
+          style={{ flex: 1, resize: "none", borderRadius: "8px", padding: "8px", fontSize: "0.875rem" }}
         />
         <button onClick={handleSend} disabled={!input.trim()}>
           Send

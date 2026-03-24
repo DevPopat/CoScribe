@@ -55,5 +55,14 @@ export default function useLocalStorage() {
     }
   }
 
-  return { save, load };
+  function clear(): void {
+    cache = null;
+    if (hasChromeStorage()) {
+      chrome.storage.local.remove(STORAGE_KEY);
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  }
+
+  return { save, load, clear };
 }

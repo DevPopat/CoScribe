@@ -51,6 +51,8 @@ npx vitest run src/panel/hooks/useSession.test.ts
 2. Open `chrome://extensions/`
 3. Enable Developer mode → Load unpacked → select `extension/dist/`
 
+If the extension is already loaded, just click the **reload** (↺) button on its card in `chrome://extensions/` after rebuilding — no need to re-add it.
+
 ## Architecture
 
 ### Data Flow
