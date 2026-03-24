@@ -18,7 +18,15 @@ from bs4 import BeautifulSoup
 from openai import OpenAI
 
 anthropic_client = anthropic.Anthropic()
-openai_client = OpenAI()
+_openai_client: "OpenAI | None" = None
+
+
+def _get_openai_client() -> OpenAI:
+    """Return the shared OpenAI client, creating it on first use."""
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI()
+    return _openai_client
 
 WEB_SEARCH_TOOL = {
     "type": "web_search_20250305",
@@ -173,8 +181,9 @@ def _run_openai_loop(
     if openai_tools:
         kwargs["tools"] = openai_tools
 
+    client = _get_openai_client()
     while True:
-        response = openai_client.chat.completions.create(**kwargs)
+        response = client.chat.completions.create(**kwargs)
         choice = response.choices[0]
 
         if choice.finish_reason != "tool_calls":
