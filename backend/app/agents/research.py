@@ -12,7 +12,7 @@ import json
 import logging
 import re
 
-from app.agents.utils import FETCH_URL_TOOL, WEB_SEARCH_TOOL, run_agent_loop
+from app.agents.utils import FETCH_URL_TOOL, WEB_SEARCH_TOOL, run_agent_loop, safe_json_loads
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def research_topic(topic: str, audience: str, notes: str = "") -> dict:
 
     # The model sometimes wraps JSON in prose; extract the first { … } object.
     try:
-        result = json.loads(raw)
+        result = safe_json_loads(raw)
         logger.info("[research] parsed JSON directly — keys=%s", list(result.keys()))
         return result
     except json.JSONDecodeError as exc:
@@ -77,7 +77,7 @@ def research_topic(topic: str, audience: str, notes: str = "") -> dict:
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if match:
             logger.info("[research] regex extracted JSON (%d chars): %.500s", len(match.group()), match.group())
-            return json.loads(match.group())
+            return safe_json_loads(match.group())
         # Last resort: return a best-effort summary with no URLs.
         logger.error("[research] no JSON found at all — using raw text as summary")
         return {"summary": raw, "urls": []}

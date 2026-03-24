@@ -10,7 +10,7 @@ import json
 import logging
 import re
 
-from app.agents.utils import run_agent_loop
+from app.agents.utils import run_agent_loop, safe_json_loads
 from app.models.outline import Outline
 
 logger = logging.getLogger(__name__)
@@ -87,13 +87,13 @@ def synthesize_outline(
     raw = re.sub(r"\n?```\s*$", "", raw.strip())
 
     try:
-        parsed = json.loads(raw)
+        parsed = safe_json_loads(raw)
     except json.JSONDecodeError as exc:
         logger.warning("[synthesizer] json.loads failed: %s — attempting regex extraction", exc)
         logger.warning("[synthesizer] problematic raw text:\n%s", raw)
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if match:
-            parsed = json.loads(match.group())
+            parsed = safe_json_loads(match.group())
         else:
             raise
 

@@ -15,7 +15,7 @@ import time
 
 import anthropic
 
-from app.agents.utils import anthropic_client as client
+from app.agents.utils import anthropic_client as client, safe_json_loads
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +113,14 @@ def extract_session_params(messages: list[dict]) -> dict:
     raw = re.sub(r"\n?```\s*$", "", raw.strip())
 
     try:
-        result = json.loads(raw)
+        result = safe_json_loads(raw)
     except json.JSONDecodeError as exc:
         logger.warning("[intake] json.loads failed: %s — attempting regex extraction", exc)
         logger.warning("[intake] problematic raw text:\n%s", raw)
         match = re.search(r"\{.*\}", raw, re.DOTALL)
         if match:
             logger.info("[intake] regex extracted JSON (%d chars)", len(match.group()))
-            result = json.loads(match.group())
+            result = safe_json_loads(match.group())
         else:
             logger.error("[intake] no JSON found — returning raw text as reply")
             return {"reply": raw or "Sorry, something went wrong. Could you try again?", "ready": False}

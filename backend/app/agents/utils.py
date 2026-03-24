@@ -9,7 +9,9 @@ API (gpt-4o-search-preview with built-in web search + fetch_url function tool);
 the default provider is ``"anthropic"``.
 """
 
+import json
 import logging
+import re as _re
 import time
 
 import anthropic
@@ -70,6 +72,49 @@ def _fetch_url(url: str) -> str:
         return soup.get_text(separator="\n", strip=True)
     except Exception as exc:
         return f"Error fetching {url}: {exc}"
+
+
+# Valid JSON escape characters after a backslash
+_VALID_JSON_ESCAPES = set('"\\\/bfnrtu')
+
+
+def safe_json_loads(raw: str) -> dict:
+    """
+    Parse a JSON string, fixing invalid backslash escapes first.
+
+    LLMs sometimes produce escape sequences like ``\\s`` or ``\\w`` (from
+    regex examples) that are illegal in JSON. This function escapes stray
+    backslashes before parsing.
+
+    :param raw: The raw JSON string.
+    :returns: The parsed dict.
+    """
+    def _fix_escapes(s: str) -> str:
+        result = []
+        i = 0
+        while i < len(s):
+            if s[i] == '\\' and i + 1 < len(s):
+                next_char = s[i + 1]
+                if next_char in _VALID_JSON_ESCAPES:
+                    result.append(s[i])
+                    result.append(next_char)
+                    i += 2
+                else:
+                    # Double the backslash to make it a literal \\
+                    result.append('\\\\')
+                    result.append(next_char)
+                    i += 2
+            else:
+                result.append(s[i])
+                i += 1
+        return ''.join(result)
+
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        fixed = _fix_escapes(raw)
+        logger.info("[safe_json_loads] retrying with escaped backslashes")
+        return json.loads(fixed)
 
 
 def _run_anthropic_loop(
