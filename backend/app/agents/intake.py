@@ -14,7 +14,7 @@ import time
 
 import anthropic
 
-from app.agents.utils import client
+from app.agents.utils import anthropic_client as client
 
 _RESPONSE_SCHEMA = """
 {

@@ -5,7 +5,7 @@ Makes a single call to claude-sonnet-4-6 using the outline context
 (title, brief, tone guidance) and the section's key points.
 """
 
-from app.agents.utils import client
+from app.agents.utils import anthropic_client as client
 
 
 def draft_section(

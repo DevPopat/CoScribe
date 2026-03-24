@@ -10,7 +10,7 @@ sources if the agent decides to revise them.
 import json
 from typing import Optional
 
-from app.agents.utils import client
+from app.agents.utils import anthropic_client as client
 
 _SYSTEM_PROMPT = (
     "You are a section editor for a blog post. The user will show you a "
