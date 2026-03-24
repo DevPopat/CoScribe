@@ -5,9 +5,14 @@ Registers all routers and middleware. The app instance defined here
 is the target for uvicorn when starting the server.
 """
 
+import logging
+
 from fastapi import FastAPI
 
 from app.api import chat, drafts, sessions
+
+# Show agent-loop diagnostics in the Docker log output
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 app = FastAPI()
 app.include_router(chat.router)

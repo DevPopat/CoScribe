@@ -9,12 +9,15 @@ API (gpt-4o-search-preview with built-in web search + fetch_url function tool);
 the default provider is ``"anthropic"``.
 """
 
+import logging
 import time
 
 import anthropic
 import httpx
 from bs4 import BeautifulSoup
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 anthropic_client = anthropic.Anthropic()
 _openai_client: "OpenAI | None" = None
@@ -85,8 +88,10 @@ def _run_anthropic_loop(
     :returns: The final assistant text response.
     """
     messages = list(messages)
+    turn = 0
 
     while True:
+        turn += 1
         kwargs = dict(
             model="claude-sonnet-4-6",
             max_tokens=max_tokens,
@@ -96,27 +101,36 @@ def _run_anthropic_loop(
         if system:
             kwargs["system"] = system
 
+        logger.info("[anthropic] turn %d — calling model (tools=%s)", turn, [t.get("name", t.get("type")) for t in tools])
+
         for attempt in range(5):
             try:
                 response = anthropic_client.messages.create(**kwargs)
                 break
             except anthropic.RateLimitError:
+                wait = 15 * (2 ** attempt)
+                logger.warning("[anthropic] turn %d — rate limited, attempt %d/5, retrying in %ds", turn, attempt + 1, wait)
                 if attempt == 4:
                     raise
-                wait = 15 * (2 ** attempt)
                 time.sleep(wait)
+
+        logger.info("[anthropic] turn %d — stop_reason=%s, content_blocks=%d", turn, response.stop_reason, len(response.content))
 
         if response.stop_reason != "tool_use":
             for block in response.content:
                 if hasattr(block, "text"):
+                    logger.info("[anthropic] turn %d — final text (%d chars): %.500s", turn, len(block.text), block.text)
                     return block.text
+            logger.warning("[anthropic] turn %d — no text block in final response", turn)
             return ""
 
         tool_results = []
         for block in response.content:
             if block.type == "tool_use":
+                logger.info("[anthropic] turn %d — tool_use: %s(input=%s)", turn, block.name, str(block.input)[:200])
                 if block.name == "fetch_url":
                     result = _fetch_url(block.input.get("url", ""))
+                    logger.info("[anthropic] turn %d — fetch_url result (%d chars)", turn, len(result))
                 else:
                     result = ""
                 tool_results.append(
@@ -154,12 +168,16 @@ def _run_openai_loop(
         openai_messages.append({"role": "system", "content": system})
     openai_messages.extend(messages)
 
+    logger.info("[openai] calling gpt-4o-search-preview (messages=%d)", len(openai_messages))
+
     client = _get_openai_client()
     response = client.chat.completions.create(
         model="gpt-4o-search-preview",
         messages=openai_messages,
     )
-    return response.choices[0].message.content or ""
+    text = response.choices[0].message.content or ""
+    logger.info("[openai] response finish_reason=%s, text (%d chars): %.500s", response.choices[0].finish_reason, len(text), text)
+    return text
 
 
 def run_agent_loop(
@@ -185,6 +203,7 @@ def run_agent_loop(
     :param provider: ``"anthropic"`` (default) or ``"openai"``.
     :returns: The final assistant text response.
     """
+    logger.info("[agent_loop] provider=%s, tools=%s", provider, [t.get("name", t.get("type")) for t in tools])
     if provider == "openai":
         return _run_openai_loop(messages, tools, system)
     return _run_anthropic_loop(messages, tools, system, max_tokens)
