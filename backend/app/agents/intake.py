@@ -9,12 +9,15 @@ signals readiness with the extracted fields.
 """
 
 import json
+import logging
 import re
 import time
 
 import anthropic
 
 from app.agents.utils import anthropic_client as client
+
+logger = logging.getLogger(__name__)
 
 _RESPONSE_SCHEMA = """
 {
@@ -68,6 +71,8 @@ def extract_session_params(messages: list[dict]) -> dict:
         ``extracted`` (dict with topic, audience, notes, writing_samples,
         reference_urls).
     """
+    logger.info("[intake] extracting params — %d messages in history", len(messages))
+
     for attempt in range(5):
         try:
             response = client.messages.create(
@@ -78,14 +83,49 @@ def extract_session_params(messages: list[dict]) -> dict:
             )
             break
         except anthropic.RateLimitError:
+            wait = 15 * (2 ** attempt)
+            logger.warning("[intake] rate limited, attempt %d/5, retrying in %ds", attempt + 1, wait)
             if attempt == 4:
                 raise
-            time.sleep(15 * (2 ** attempt))
+            time.sleep(wait)
 
-    raw = response.content[0].text
+    # Log every content block the model returned
+    logger.info("[intake] stop_reason=%s, content_blocks=%d", response.stop_reason, len(response.content))
+    for i, block in enumerate(response.content):
+        block_type = getattr(block, "type", "unknown")
+        block_text = getattr(block, "text", None)
+        logger.info("[intake] block[%d] type=%s text=%s", i, block_type, repr(block_text[:500]) if block_text else "None")
+
+    # Extract text from the first text block (skip non-text blocks)
+    raw = ""
+    for block in response.content:
+        if hasattr(block, "text") and block.text:
+            raw = block.text
+            break
+
+    if not raw:
+        logger.error("[intake] no text block found in response — returning fallback")
+        return {"reply": "Sorry, something went wrong. Could you try again?", "ready": False}
+
+    logger.info("[intake] raw response (%d chars):\n%s", len(raw), raw)
+
     raw = re.sub(r"^```(?:json)?\s*\n?", "", raw.strip())
     raw = re.sub(r"\n?```\s*$", "", raw.strip())
-    result = json.loads(raw)
+
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        logger.warning("[intake] json.loads failed: %s — attempting regex extraction", exc)
+        logger.warning("[intake] problematic raw text:\n%s", raw)
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
+            logger.info("[intake] regex extracted JSON (%d chars)", len(match.group()))
+            result = json.loads(match.group())
+        else:
+            logger.error("[intake] no JSON found — returning raw text as reply")
+            return {"reply": raw or "Sorry, something went wrong. Could you try again?", "ready": False}
+
+    logger.info("[intake] parsed result — ready=%s, has_extracted=%s", result.get("ready"), "extracted" in result)
 
     # Ensure extracted is absent (not None) when not ready
     if not result.get("ready") and "extracted" in result:
