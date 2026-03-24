@@ -34,7 +34,7 @@ async def generate_plan(
     """
     Run the planning agents and store the resulting outline on the session.
 
-    Phase 1 runs research (OpenAI) and style analysis (Anthropic) concurrently
+    Phase 1 runs research (Anthropic) and style analysis (OpenAI) concurrently
     since they draw from separate rate-limit pools.  Phase 2 feeds their
     outputs into the synthesizer to produce a structured outline.
 
@@ -50,7 +50,7 @@ async def generate_plan(
     session.status = "planning"
     store.update(session)
 
-    # Phase 1: research (OpenAI) and style analysis (Anthropic) run concurrently
+    # Phase 1: research (Anthropic) and style analysis (OpenAI) run concurrently
     # since they draw from separate rate-limit pools.
     research_result, style_result = await asyncio.gather(
         asyncio.to_thread(research_topic, session.topic, session.audience, session.notes),

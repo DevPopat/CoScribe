@@ -9,7 +9,6 @@ API (gpt-4o-search-preview with built-in web search + fetch_url function tool);
 the default provider is ``"anthropic"``.
 """
 
-import json
 import time
 
 import anthropic
@@ -46,16 +45,6 @@ FETCH_URL_TOOL = {
             "url": {"type": "string", "description": "The URL to fetch."}
         },
         "required": ["url"],
-    },
-}
-
-# OpenAI function-calling equivalent of FETCH_URL_TOOL
-_FETCH_URL_TOOL_OPENAI = {
-    "type": "function",
-    "function": {
-        "name": "fetch_url",
-        "description": FETCH_URL_TOOL["description"],
-        "parameters": FETCH_URL_TOOL["input_schema"],
     },
 }
 
@@ -148,65 +137,29 @@ def _run_openai_loop(
     system: str,
 ) -> str:
     """
-    Run a tool_use / end_turn agentic loop using the OpenAI Chat Completions API.
+    Call the OpenAI Chat Completions API (gpt-4o-search-preview).
 
-    Uses ``gpt-4o-search-preview`` which has built-in web search, so the
-    Anthropic ``web_search_20250305`` tool is skipped; only ``fetch_url`` is
-    mapped to an OpenAI function tool.
+    This model does not support function-calling tools, so ``tools`` is
+    accepted for interface compatibility but ignored.  Callers that need URL
+    fetching should pre-fetch content and inline it in the prompt.
 
-    :param messages: Initial conversation messages in Anthropic-style format
-        (converted to OpenAI format internally).
-    :param tools: Anthropic-format tool definitions (web_search is skipped;
-        fetch_url is converted to an OpenAI function definition).
+    :param messages: Conversation messages (same format as Anthropic).
+    :param tools: Ignored — kept for interface compatibility with the
+        Anthropic loop.
     :param system: Optional system prompt.
-    :returns: The final assistant text response.
+    :returns: The model's text response.
     """
-    # Prepend system message and convert to OpenAI message format
-    openai_messages = []
+    openai_messages: list[dict] = []
     if system:
         openai_messages.append({"role": "system", "content": system})
     openai_messages.extend(messages)
 
-    # Build OpenAI tool list: skip built-in web_search, convert fetch_url
-    openai_tools = []
-    for tool in tools:
-        if tool.get("name") == "fetch_url":
-            openai_tools.append(_FETCH_URL_TOOL_OPENAI)
-        # web_search_20250305 is built-in for gpt-4o-search-preview; skip it
-
-    kwargs: dict = {
-        "model": "gpt-4o-search-preview",
-        "messages": openai_messages,
-    }
-    if openai_tools:
-        kwargs["tools"] = openai_tools
-
     client = _get_openai_client()
-    while True:
-        response = client.chat.completions.create(**kwargs)
-        choice = response.choices[0]
-
-        if choice.finish_reason != "tool_calls":
-            return choice.message.content or ""
-
-        # Append assistant turn with tool calls
-        openai_messages.append(choice.message)
-        kwargs["messages"] = openai_messages
-
-        # Execute each tool call and append results
-        for tool_call in choice.message.tool_calls:
-            if tool_call.function.name == "fetch_url":
-                args = json.loads(tool_call.function.arguments)
-                result = _fetch_url(args.get("url", ""))
-            else:
-                result = ""
-            openai_messages.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": result,
-                }
-            )
+    response = client.chat.completions.create(
+        model="gpt-4o-search-preview",
+        messages=openai_messages,
+    )
+    return response.choices[0].message.content or ""
 
 
 def run_agent_loop(
