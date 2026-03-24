@@ -52,4 +52,13 @@ def research_topic(topic: str, audience: str, notes: str = "") -> dict:
     )
     raw = re.sub(r"^```(?:json)?\s*\n?", "", raw.strip())
     raw = re.sub(r"\n?```\s*$", "", raw.strip())
-    return json.loads(raw)
+
+    # The model sometimes wraps JSON in prose; extract the first { … } object.
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", raw, re.DOTALL)
+        if match:
+            return json.loads(match.group())
+        # Last resort: return a best-effort summary with no URLs.
+        return {"summary": raw, "urls": []}
