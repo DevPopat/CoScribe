@@ -199,7 +199,7 @@ def run_agent_loop(
     messages: list[dict],
     tools: list[dict],
     system: str = "",
-    max_tokens: int = 2048,
+    max_tokens: int = 16384,
     provider: str = "anthropic",
 ) -> str:
     """
