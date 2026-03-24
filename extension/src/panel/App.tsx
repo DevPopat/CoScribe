@@ -1,13 +1,15 @@
 // Root panel component. Routes between ChatView (intake) and DraftView
 // (section editing) based on currentView from useSession.
 
-import React from "react";
+import React, { useState } from "react";
 import useSession from "./hooks/useSession";
 import useEditorStatus from "./hooks/useEditorStatus";
 import ChatView from "./components/ChatView";
 import DraftView from "./components/DraftView";
 
 export default function App() {
+  const [darkMode, setDarkMode] = useState(false);
+
   const {
     outline,
     currentSectionIndex,
@@ -44,10 +46,16 @@ export default function App() {
   };
 
   return (
-    <div className="app" style={{ display: "flex", flexDirection: "column", height: "100vh" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: "1px solid #ddd" }}>
+    <div className="app" style={{ display: "flex", flexDirection: "column", height: "100vh", background: darkMode ? "#1c1c1e" : "#fff", color: darkMode ? "#fff" : "#1c1c1e" }}>
+      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderBottom: `1px solid ${darkMode ? "#444" : "#ddd"}` }}>
         <h1 style={{ margin: 0, fontSize: "1rem" }}>CoScribe</h1>
-        <button onClick={handleNewSession}>+ New Session</button>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "0.8rem", cursor: "pointer" }}>
+            <input type="checkbox" checked={darkMode} onChange={(e) => setDarkMode(e.target.checked)} />
+            Dark
+          </label>
+          <button onClick={handleNewSession}>+ New Session</button>
+        </div>
       </header>
 
       <div style={{ flex: 1, overflow: "hidden" }}>
@@ -56,6 +64,7 @@ export default function App() {
             chatHistory={chatHistory}
             outline={outline}
             isLoading={isLoading}
+            darkMode={darkMode}
             onSend={sendChatMessage}
             onDraft={draftSection}
           />
