@@ -12,7 +12,7 @@ from pydantic import BaseModel, field_validator
 
 from app.agents.intake import extract_session_params
 
-router = APIRouter(tags=["chat"])
+router = APIRouter(prefix="/sessions", tags=["chat"])
 
 
 class ChatMessage(BaseModel):
